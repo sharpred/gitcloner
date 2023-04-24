@@ -16,21 +16,38 @@ Future<void> main(List<String> arguments) async {
     }
     String? repo = rest.first;
     bool? hasAccount = account?.isNotEmpty;
-    bool isGitDir = await GitDir.isGitDir(p.current);
+    bool isGitDir = false;
 
-    if (isGitDir == false) {
-      if (repo != null) {
-        if (hasAccount == true) {
-          repo = repo.replaceAll("github.com", "github.com-$account");
-        }
-        List<String> gitArguments = ['clone', repo];
-        if (folder != null && folder.isNotEmpty) {
-          gitArguments.add(folder);
-        }
-        runGit(gitArguments);
-      }
+    RegExp exp = RegExp(r'git@github\.com:(.*)\/(.*)\.git',
+        caseSensitive: false, multiLine: false);
+    if (repo == null) {
+      throw Exception("A repo was not provided");
     } else {
-      throw Exception("Cannot clone into an existing git folder");
+      final match = exp.firstMatch(repo);
+      final String? projectName = match?[2];
+
+      if (match == null) {
+        throw Exception("$repo does not look like a valid github repo");
+      }
+
+      if (hasAccount == true) {
+        repo = repo.replaceAll("github.com", "github.com-$account");
+      }
+      List<String> gitArguments = ['clone', repo];
+      if (folder != null && folder.isNotEmpty) {
+        gitArguments.add(folder);
+      } else if (projectName != null && projectName.isNotEmpty) {
+        gitArguments.add(projectName);
+      }
+
+      String pth = p.join(p.current, gitArguments.last);
+
+      await GitDir.isGitDir(pth);
+      if (isGitDir == false) {
+        runGit(gitArguments);
+      } else {
+        throw Exception("Cannot clone into an existing git folder");
+      }
     }
   } catch (ex) {
     print("error $ex");
